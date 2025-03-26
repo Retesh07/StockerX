@@ -22,7 +22,7 @@ Ensure you have the following installed:
 
 ### 🔹 Clone the Repository
 ```sh
-git clone https://github.com/Rakesh-R-K/StockerX.git
+git clone https://github.com/Retesh07/StockerX.git
 cd StockerX
 ```
 
