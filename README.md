@@ -22,8 +22,8 @@ Ensure you have the following installed:
 
 ### 🔹 Clone the Repository
 ```sh
-git clone https://github.com/yourusername/stockerx.git
-cd stockerx
+git clone https://github.com/Rakesh-R-K/StockerX.git
+cd StockerX
 ```
 
 ### 🔹 Backend Setup
@@ -37,12 +37,13 @@ MONGO_URI=your_mongodb_connection_string
 ```
 Start the backend server:
 ```sh
+cd server
 npm run dev
 ```
 
 ### 🔹 Frontend Setup
 ```sh
-cd ../frontend
+cd ../client
 npm install
 npm run dev
 ```
