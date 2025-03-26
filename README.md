@@ -28,7 +28,7 @@ cd StockerX
 
 ### 🔹 Backend Setup
 ```sh
-cd backend
+cd server
 npm install
 ```
 Create a `.env` file and add your MongoDB connection string:
