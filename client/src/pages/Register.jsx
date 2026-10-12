@@ -31,7 +31,7 @@ const Register = () => {
             });
             navigate('/login');
         } catch (err) {
-            setError(err.response?.data?.message || 'Registration failed');
+            setError(err.response?.data?.message || err.response?.data?.error || err.message || 'Registration failed');
         }
     };
 
@@ -48,7 +48,7 @@ const Register = () => {
                 <h2 className="text-3xl font-bold text-white text-center mb-8">Create an Account</h2>
                 
                 {error && (
-                    <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-500 px-4 py-2 rounded mb-6">
+                    <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-500 px-4 py-2 rounded mb-6 text-sm">
                         {error}
                     </div>
                 )}
@@ -82,9 +82,10 @@ const Register = () => {
                         <input
                             type="password"
                             name="password"
+                            minLength={6}
                             value={formData.password}
                             onChange={handleChange}
-                            placeholder="Password"
+                            placeholder="Password (min 6 characters)"
                             className="w-full bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-green-500"
                             required
                         />
@@ -94,6 +95,7 @@ const Register = () => {
                         <input
                             type="password"
                             name="confirmPassword"
+                            minLength={6}
                             value={formData.confirmPassword}
                             onChange={handleChange}
                             placeholder="Confirm Password"

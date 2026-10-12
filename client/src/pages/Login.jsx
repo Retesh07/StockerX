@@ -11,7 +11,7 @@ const Login = () => {
     });
     const [error, setError] = useState('');
     const navigate = useNavigate();
-    const { login, user } = useAuth();
+    const { login, loginDemo, user } = useAuth();
 
     useEffect(() => {
         if (user) {
@@ -276,12 +276,27 @@ const Login = () => {
 
                     <motion.button
                         type="submit"
-                        className="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors"
+                        className="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors font-medium"
                         variants={itemVariants}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                     >
                         Sign in
+                    </motion.button>
+
+                    <motion.button
+                        type="button"
+                        onClick={() => {
+                            loginDemo();
+                            navigate('/dashboard');
+                        }}
+                        className="w-full mt-3 bg-gray-750 hover:bg-gray-700 bg-gray-700/60 text-gray-200 border border-gray-600 py-2 px-4 rounded transition-colors text-sm font-medium flex items-center justify-center space-x-2"
+                        variants={itemVariants}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                    >
+                        <span>⚡</span>
+                        <span>1-Click Demo Trader Account ($100,000)</span>
                     </motion.button>
                 </form>
 

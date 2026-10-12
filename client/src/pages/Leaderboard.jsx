@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { leaderboardService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -38,7 +38,8 @@ const MedalSVG = ({ className, color }) => (
 );
 
 const Leaderboard = () => {
-    const [leaderboard, setLeaderboard] = useState([]);
+    const [rawLeaderboard, setRawLeaderboard] = useState([]);
+    const [sortBy, setSortBy] = useState('totalValue'); // 'totalValue' | 'profitLoss' | 'portfolioValue'
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const { user: currentUser } = useAuth();
@@ -46,27 +47,31 @@ const Leaderboard = () => {
     useEffect(() => {
         const fetchLeaderboard = async () => {
             try {
-                console.log('Fetching leaderboard data...');
-                const response = await axios.get('http://localhost:5000/api/leaderboard', {
-                    withCredentials: true
-                });
-                console.log('Leaderboard response:', response.data);
-                
-                const sortedLeaderboard = Array.isArray(response.data) 
-                    ? [...response.data].sort((a, b) => (b.portfolioValue || 0) - (a.portfolioValue || 0))
-                    : [];
-                
-                setLeaderboard(sortedLeaderboard);
+                const response = await leaderboardService.getLeaderboard();
+                const data = Array.isArray(response.data) ? response.data : [];
+                setRawLeaderboard(data);
                 setLoading(false);
             } catch (err) {
                 console.error('Error fetching leaderboard:', err);
-                setError(err.message);
+                setError(err.response?.data?.message || err.message);
                 setLoading(false);
             }
         };
 
         fetchLeaderboard();
     }, []);
+
+    // Dynamically sort traders based on selected criterion
+    const leaderboard = [...rawLeaderboard].sort((a, b) => {
+        if (sortBy === 'profitLoss') {
+            return (b.profitLoss || 0) - (a.profitLoss || 0);
+        }
+        if (sortBy === 'portfolioValue') {
+            return (b.portfolioValue || 0) - (a.portfolioValue || 0);
+        }
+        // Default: Total Net Worth (portfolio + cash balance)
+        return (b.totalValue || 0) - (a.totalValue || 0);
+    });
 
     console.log('Current state:', { loading, error, leaderboard });
 
@@ -162,90 +167,134 @@ const Leaderboard = () => {
                     transition={{ type: "spring", stiffness: 100 }}
                 >
                     <span className="bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-yellow-600">
-                        Leaderboard
+                        Trader Leaderboard
                     </span>
                 </motion.h1>
+
+                {/* Sorting Controls */}
+                <div className="flex justify-center items-center gap-2 mb-6">
+                    <button
+                        onClick={() => setSortBy('totalValue')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            sortBy === 'totalValue'
+                                ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/40 shadow-sm'
+                                : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700/50'
+                        }`}
+                    >
+                        Total Net Worth
+                    </button>
+                    <button
+                        onClick={() => setSortBy('profitLoss')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            sortBy === 'profitLoss'
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm'
+                                : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700/50'
+                        }`}
+                    >
+                        Profit / Loss
+                    </button>
+                    <button
+                        onClick={() => setSortBy('portfolioValue')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                            sortBy === 'portfolioValue'
+                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40 shadow-sm'
+                                : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700/50'
+                        }`}
+                    >
+                        Stock Holdings
+                    </button>
+                </div>
                 
                 <motion.div 
-                    className="bg-gray-800/80 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden"
+                    className="bg-gray-800/80 backdrop-blur-sm rounded-lg shadow-lg overflow-x-auto"
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.2 }}
                 >
                     <table className="w-full">
                         <thead>
-                            <tr className="bg-gray-700">
-                                <th className="px-4 py-3 text-left text-white">Rank</th>
-                                <th className="px-4 py-3 text-left text-white">Trader</th>
-                                <th className="px-4 py-3 text-right text-white">Portfolio Value</th>
-                                <th className="px-4 py-3 text-right text-white">Cash Balance</th>
-                                <th className="px-4 py-3 text-right text-white">Total Value</th>
-                                <th className="px-4 py-3 text-right text-white">Profit/Loss</th>
+                            <tr className="bg-gray-700 text-xs font-semibold uppercase tracking-wider text-gray-300">
+                                <th className="px-4 py-3 text-left">Rank</th>
+                                <th className="px-4 py-3 text-left">Trader</th>
+                                <th className="px-4 py-3 text-right">Portfolio Value</th>
+                                <th className="px-4 py-3 text-right">Cash Balance</th>
+                                <th className="px-4 py-3 text-right">Total Net Worth</th>
+                                <th className="px-4 py-3 text-right">Overall Return</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {leaderboard.map((trader, index) => (
-                                <motion.tr 
-                                    key={trader._id}
-                                    className={`border-t border-gray-700/50 ${
-                                        trader._id === currentUser?._id ? 'bg-blue-900/20' : ''
-                                    } ${
-                                        index === 0 ? 'bg-yellow-900/20' :
-                                        index === 1 ? 'bg-gray-600/20' :
-                                        index === 2 ? 'bg-yellow-800/20' : ''
-                                    }`}
-                                    initial={{ x: -20, opacity: 0 }}
-                                    animate={{ x: 0, opacity: 1 }}
-                                    transition={{ delay: index * 0.1 }}
-                                    whileHover={{ 
-                                        scale: 1.01,
-                                        backgroundColor: trader._id === currentUser?._id 
-                                            ? 'rgba(59, 130, 246, 0.3)' 
-                                            : 'rgba(55, 65, 81, 0.3)'
-                                    }}
-                                >
-                                    <td className="px-4 py-4 text-white">
-                                        <motion.div
-                                            className="flex items-center gap-2"
-                                            whileHover={{ scale: 1.1 }}
-                                        >
-                                            {index < 3 && (
-                                                <motion.div
-                                                    initial={{ scale: 0 }}
-                                                    animate={{ scale: 1 }}
-                                                    transition={{ delay: 0.5 + index * 0.1 }}
-                                                >
-                                                    {index === 0 && <TrophySVG className="w-6 h-6" color="#FCD34D" />}
-                                                    {index === 1 && <TrophySVG className="w-6 h-6" color="#9CA3AF" />}
-                                                    {index === 2 && <TrophySVG className="w-6 h-6" color="#92400E" />}
-                                                </motion.div>
+                            {leaderboard.map((trader, index) => {
+                                const isProfit = (trader.profitLoss || 0) >= 0;
+                                const isCurrent = trader._id === currentUser?._id;
+
+                                return (
+                                    <motion.tr 
+                                        key={trader._id}
+                                        className={`border-t border-gray-700/50 ${
+                                            isCurrent ? 'bg-blue-900/20' : ''
+                                        } ${
+                                            index === 0 ? 'bg-yellow-900/15' :
+                                            index === 1 ? 'bg-gray-600/15' :
+                                            index === 2 ? 'bg-yellow-800/15' : ''
+                                        }`}
+                                        initial={{ x: -20, opacity: 0 }}
+                                        animate={{ x: 0, opacity: 1 }}
+                                        transition={{ delay: index * 0.05 }}
+                                        whileHover={{ 
+                                            scale: 1.005,
+                                            backgroundColor: isCurrent 
+                                                ? 'rgba(59, 130, 246, 0.25)' 
+                                                : 'rgba(55, 65, 81, 0.4)'
+                                        }}
+                                    >
+                                        <td className="px-4 py-4 text-white font-mono">
+                                            <div className="flex items-center gap-2">
+                                                {index < 3 && (
+                                                    <motion.div
+                                                        initial={{ scale: 0 }}
+                                                        animate={{ scale: 1 }}
+                                                        transition={{ delay: 0.3 + index * 0.1 }}
+                                                    >
+                                                        {index === 0 && <TrophySVG className="w-5 h-5" color="#FCD34D" />}
+                                                        {index === 1 && <TrophySVG className="w-5 h-5" color="#9CA3AF" />}
+                                                        {index === 2 && <TrophySVG className="w-5 h-5" color="#92400E" />}
+                                                    </motion.div>
+                                                )}
+                                                <span className={index < 3 ? 'font-bold text-yellow-400' : 'text-gray-400'}>
+                                                    #{index + 1}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-4 text-white font-medium">
+                                            {trader.username}
+                                            {isCurrent && (
+                                                <span className="ml-2 px-2 py-0.5 text-xs bg-blue-500/20 text-blue-400 rounded-full border border-blue-500/30">
+                                                    You
+                                                </span>
                                             )}
-                                            #{index + 1}
-                                        </motion.div>
-                                    </td>
-                                    <td className="px-4 py-4 text-white">
-                                        {trader.username}
-                                        {trader._id === currentUser?._id && 
-                                            <span className="ml-2 text-blue-400">(You)</span>
-                                        }
-                                    </td>
-                                    <td className="px-4 py-4 text-right text-white">
-                                        ${(trader.portfolioValue || 0).toFixed(2)}
-                                    </td>
-                                    <td className="px-4 py-4 text-right text-white">
-                                        ${(trader.cashBalance || 0).toFixed(2)}
-                                    </td>
-                                    <td className="px-4 py-4 text-right text-white">
-                                        ${(trader.totalValue || 0).toFixed(2)}
-                                    </td>
-                                    <td className={`px-4 py-4 text-right ${
-                                        (trader.profitLoss || 0) >= 0 ? 'text-green-500' : 'text-red-500'
-                                    }`}>
-                                        ${Math.abs(trader.profitLoss || 0).toFixed(2)}
-                                        ({(trader.profitLossPercentage || 0).toFixed(2)}%)
-                                    </td>
-                                </motion.tr>
-                            ))}
+                                        </td>
+                                        <td className="px-4 py-4 text-right text-gray-300 font-mono text-sm">
+                                            ₹{(trader.portfolioValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="px-4 py-4 text-right text-gray-300 font-mono text-sm">
+                                            ₹{(trader.cashBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="px-4 py-4 text-right text-white font-mono font-semibold text-sm">
+                                            ₹{(trader.totalValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td className={`px-4 py-4 text-right font-mono font-semibold text-sm ${
+                                            isProfit ? 'text-emerald-400' : 'text-rose-400'
+                                        }`}>
+                                            <div>
+                                                {isProfit ? '+' : '-'}₹{Math.abs(trader.profitLoss || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </div>
+                                            <div className="text-xs font-normal text-gray-400">
+                                                {isProfit ? '+' : ''}{(trader.profitLossPercentage || 0).toFixed(2)}%
+                                            </div>
+                                        </td>
+                                    </motion.tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </motion.div>

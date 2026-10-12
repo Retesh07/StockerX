@@ -21,16 +21,8 @@ function AnimatedRoutes({ setIsCalculatorOpen }) {
             <Routes location={location} key={location.pathname}>
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/" element={
-                    <PrivateRoute>
-                        <Dashboard setIsCalculatorOpen={setIsCalculatorOpen} />
-                    </PrivateRoute>
-                } />
-                <Route path="/dashboard" element={
-                    <PrivateRoute>
-                        <Dashboard setIsCalculatorOpen={setIsCalculatorOpen} />
-                    </PrivateRoute>
-                } />
+                <Route path="/" element={<Dashboard setIsCalculatorOpen={setIsCalculatorOpen} />} />
+                <Route path="/dashboard" element={<Dashboard setIsCalculatorOpen={setIsCalculatorOpen} />} />
                 <Route path="/portfolio" element={
                     <PrivateRoute>
                         <Portfolio setIsCalculatorOpen={setIsCalculatorOpen} />

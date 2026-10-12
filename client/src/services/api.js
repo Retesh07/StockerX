@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:5000/api',
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json'
@@ -64,7 +64,10 @@ export const tradingService = {
 
 export const stockService = {
     getStock: (stockId) => api.get(`/stocks/${stockId}`),
-    getAllStocks: () => api.get('/stocks')
+    getAllStocks: () => api.get('/stocks'),
+    getQuotes: (symbols) => api.get('/stocks/quotes', { params: symbols ? { symbols: symbols.join(',') } : {} }),
+    getQuote: (symbol) => api.get(`/stocks/quotes/${symbol}`),
+    getHistory: (symbol, timeframe = '1D') => api.get(`/stocks/history/${symbol}`, { params: { timeframe } })
 };
 
 export const portfolioService = {

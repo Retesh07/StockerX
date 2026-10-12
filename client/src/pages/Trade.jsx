@@ -29,14 +29,25 @@ const Trade = () => {
         fetchStock();
     }, [stockId]);
 
+    const [submitting, setSubmitting] = useState(false);
+
     const handleTrade = async (type) => {
+        const parsed = parseInt(quantity, 10);
+        if (!parsed || parsed <= 0) {
+            setError('Please enter a valid positive quantity');
+            return;
+        }
+
         try {
             setError(null);
+            setSubmitting(true);
             const tradeService = type === 'buy' ? tradingService.buyStock : tradingService.sellStock;
-            await tradeService(stockId, quantity);
+            await tradeService(stockId, parsed);
             navigate('/portfolio');
         } catch (err) {
             setError(err.response?.data?.message || `Failed to ${type} stock`);
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -80,11 +91,11 @@ const Trade = () => {
                         <div className="space-y-2">
                             <div className="flex justify-between">
                                 <span className="text-gray-300">Current Price</span>
-                                <span className="text-white">${stock.currentPrice.toFixed(2)}</span>
+                                <span className="text-white">₹{stock.currentPrice.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-300">Previous Close</span>
-                                <span className="text-white">${stock.previousClose.toFixed(2)}</span>
+                                <span className="text-white">₹{stock.previousClose.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-300">Volume</span>
@@ -107,9 +118,9 @@ const Trade = () => {
                                 />
                             </div>
                             
-                            <div className="flex justify-between text-white">
+                            <div className="flex justify-between text-white font-medium">
                                 <span>Total Cost:</span>
-                                <span>${(stock.currentPrice * quantity).toFixed(2)}</span>
+                                <span>₹{(stock.currentPrice * quantity).toFixed(2)}</span>
                             </div>
 
                             <div className="flex space-x-4">

@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+*/node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment Variables (Security)
+.env
+.env*.local
+server/.env
+client/.env
+
+# Production build outputs
+dist/
+build/
+client/dist/
+
+# Debug and Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# System & OS Files
+.DS_Store
+Thumbs.db
+faketoken.jsx
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace

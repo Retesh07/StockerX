@@ -74,6 +74,19 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const loginDemo = () => {
+        const demoUser = {
+            _id: 'demo-user-123',
+            username: 'demotrader',
+            email: 'demotrader@stockerx.com',
+            virtualBalance: 100000,
+            portfolio: []
+        };
+        localStorage.setItem('token', 'demo-token');
+        setUser(demoUser);
+        return demoUser;
+    };
+
     return (
         <AuthContext.Provider value={{
             user,
@@ -81,6 +94,7 @@ export const AuthProvider = ({ children }) => {
             login,
             logout,
             register,
+            loginDemo,
             checkAuthStatus
         }}>
             {children}

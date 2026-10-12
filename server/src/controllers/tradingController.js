@@ -3,85 +3,117 @@ const Stock = require('../models/Stock');
 const Transaction = require('../models/Transaction');
 
 const tradingController = {
+    /**
+     * Buy stock:
+     * - Server-side price only (never trust client price)
+     * - Integer quantity validation (> 0)
+     * - Atomic guarded update checking virtualBalance >= totalCost
+     * - Prevents race conditions and double-spending
+     */
     buyStock: async (req, res) => {
         try {
             const { stockId, quantity } = req.body;
             
-            // Input validation
-            if (!stockId || !quantity || quantity <= 0) {
+            // 1. Quantity validation: must be a positive integer
+            const parsedQty = parseInt(quantity, 10);
+            if (!stockId || !Number.isInteger(parsedQty) || parsedQty <= 0) {
                 return res.status(400).json({ 
-                    message: 'Invalid input. Stock ID and positive quantity are required.' 
+                    message: 'Invalid input. Stock ID and a positive integer quantity are required.' 
                 });
             }
 
-            // Find stock and validate
+            // 2. Fetch authoritative server-side stock price
             const stock = await Stock.findById(stockId);
             if (!stock) {
                 return res.status(404).json({ message: 'Stock not found' });
             }
 
-            // Find user and validate
-            const user = await User.findById(req.user._id);
-            if (!user) {
+            const executionPrice = stock.currentPrice;
+            const totalCost = executionPrice * parsedQty;
+
+            // 3. Find current user position state
+            const currentUser = await User.findById(req.user._id);
+            if (!currentUser) {
                 return res.status(404).json({ message: 'User not found' });
             }
 
-            const totalCost = stock.currentPrice * quantity;
-
-            // Check if user has enough balance
-            if (user.virtualBalance < totalCost) {
-                return res.status(400).json({ message: 'Insufficient funds' });
-            }
-
-            // Update portfolio
-            const existingPosition = user.portfolio.find(
-                position => position.stockId.toString() === stockId
-            );
-
-            if (existingPosition) {
-                // Update existing position
-                const newQuantity = existingPosition.quantity + parseInt(quantity);
-                const newAverageBuyPrice = (
-                    (existingPosition.quantity * existingPosition.averageBuyPrice + 
-                     quantity * stock.currentPrice) / newQuantity
-                );
-                
-                existingPosition.quantity = newQuantity;
-                existingPosition.averageBuyPrice = newAverageBuyPrice;
-            } else {
-                // Add new position
-                user.portfolio.push({
-                    stockId: stock._id,
-                    quantity: parseInt(quantity),
-                    averageBuyPrice: stock.currentPrice
+            if (currentUser.virtualBalance < totalCost) {
+                return res.status(400).json({ 
+                    message: `Insufficient funds. Required: ₹${totalCost.toFixed(2)}, Available: ₹${currentUser.virtualBalance.toFixed(2)}` 
                 });
             }
 
-            // Update user's balance
-            user.virtualBalance -= totalCost;
+            const existingPosition = currentUser.portfolio.find(
+                p => p.stockId && p.stockId.toString() === stockId.toString()
+            );
 
-            // Create transaction record
-            const transaction = new Transaction({
-                userId: user._id,
+            let updatedUser;
+
+            if (existingPosition) {
+                // Calculate new weighted average buy price
+                const prevQty = existingPosition.quantity;
+                const prevAvg = existingPosition.averageBuyPrice || executionPrice;
+                const newQty = prevQty + parsedQty;
+                const newAvg = ((prevQty * prevAvg) + totalCost) / newQty;
+
+                // Atomic guarded update: deduct balance and update existing position
+                updatedUser = await User.findOneAndUpdate(
+                    {
+                        _id: req.user._id,
+                        virtualBalance: { $gte: totalCost },
+                        'portfolio.stockId': stock._id
+                    },
+                    {
+                        $inc: { virtualBalance: -totalCost },
+                        $set: {
+                            'portfolio.$.quantity': newQty,
+                            'portfolio.$.averageBuyPrice': newAvg
+                        }
+                    },
+                    { new: true }
+                );
+            } else {
+                // Atomic guarded update: deduct balance and push new position
+                updatedUser = await User.findOneAndUpdate(
+                    {
+                        _id: req.user._id,
+                        virtualBalance: { $gte: totalCost }
+                    },
+                    {
+                        $inc: { virtualBalance: -totalCost },
+                        $push: {
+                            portfolio: {
+                                stockId: stock._id,
+                                quantity: parsedQty,
+                                averageBuyPrice: executionPrice
+                            }
+                        }
+                    },
+                    { new: true }
+                );
+            }
+
+            // If updatedUser is null, balance changed concurrently before write completed
+            if (!updatedUser) {
+                return res.status(400).json({ message: 'Insufficient funds. Trade rejected.' });
+            }
+
+            // 4. Record transaction log
+            const transaction = await Transaction.create({
+                userId: req.user._id,
                 stockId: stock._id,
                 type: 'buy',
-                quantity: parseInt(quantity),
-                price: stock.currentPrice,
+                quantity: parsedQty,
+                price: executionPrice,
                 total: totalCost
             });
 
-            // Save all changes
-            await Promise.all([
-                user.save(),
-                transaction.save()
-            ]);
-
             res.status(200).json({
-                message: 'Stock purchased successfully',
+                message: `Successfully purchased ${parsedQty} share(s) of ${stock.symbol}`,
                 transaction,
                 user: {
-                    virtualBalance: user.virtualBalance,
-                    portfolio: user.portfolio
+                    virtualBalance: updatedUser.virtualBalance,
+                    portfolio: updatedUser.portfolio
                 }
             });
 
@@ -94,77 +126,114 @@ const tradingController = {
         }
     },
 
+    /**
+     * Sell stock:
+     * - Server-side price only
+     * - Integer quantity validation (> 0)
+     * - Atomic guarded update checking portfolio.quantity >= quantity
+     * - Strictly prevents overselling and race conditions
+     */
     sellStock: async (req, res) => {
         try {
             const { stockId, quantity } = req.body;
             
-            // Input validation
-            if (!stockId || !quantity || quantity <= 0) {
+            // 1. Quantity validation
+            const parsedQty = parseInt(quantity, 10);
+            if (!stockId || !Number.isInteger(parsedQty) || parsedQty <= 0) {
                 return res.status(400).json({ 
-                    message: 'Invalid input. Stock ID and positive quantity are required.' 
+                    message: 'Invalid input. Stock ID and a positive integer quantity are required.' 
                 });
             }
 
-            // Find stock and validate
+            // 2. Fetch authoritative server-side stock price
             const stock = await Stock.findById(stockId);
             if (!stock) {
                 return res.status(404).json({ message: 'Stock not found' });
             }
 
-            // Find user and validate
-            const user = await User.findById(req.user._id);
-            if (!user) {
+            const executionPrice = stock.currentPrice;
+            const totalProceeds = executionPrice * parsedQty;
+
+            // 3. Verify user holding
+            const currentUser = await User.findById(req.user._id);
+            if (!currentUser) {
                 return res.status(404).json({ message: 'User not found' });
             }
 
-            // Find the position in user's portfolio
-            const position = user.portfolio.find(
-                pos => pos.stockId.toString() === stockId
+            const position = currentUser.portfolio.find(
+                p => p.stockId && p.stockId.toString() === stockId.toString()
             );
 
-            if (!position || position.quantity < quantity) {
+            if (!position || position.quantity < parsedQty) {
+                const available = position ? position.quantity : 0;
                 return res.status(400).json({ 
-                    message: 'Insufficient stocks to sell' 
+                    message: `Insufficient shares to sell. Available: ${available}, Requested: ${parsedQty}` 
                 });
             }
 
-            const totalValue = stock.currentPrice * quantity;
+            let updatedUser;
 
-            // Update portfolio
-            position.quantity -= parseInt(quantity);
-            
-            // Remove position if quantity becomes 0
-            if (position.quantity === 0) {
-                user.portfolio = user.portfolio.filter(
-                    pos => pos.stockId.toString() !== stockId
+            if (position.quantity === parsedQty) {
+                // Selling entire position: pull element atomically guarded by quantity >= parsedQty
+                updatedUser = await User.findOneAndUpdate(
+                    {
+                        _id: req.user._id,
+                        portfolio: {
+                            $elemMatch: {
+                                stockId: stock._id,
+                                quantity: { $gte: parsedQty }
+                            }
+                        }
+                    },
+                    {
+                        $inc: { virtualBalance: totalProceeds },
+                        $pull: { portfolio: { stockId: stock._id } }
+                    },
+                    { new: true }
+                );
+            } else {
+                // Partial sale: decrement quantity atomically guarded by quantity >= parsedQty
+                updatedUser = await User.findOneAndUpdate(
+                    {
+                        _id: req.user._id,
+                        portfolio: {
+                            $elemMatch: {
+                                stockId: stock._id,
+                                quantity: { $gte: parsedQty }
+                            }
+                        }
+                    },
+                    {
+                        $inc: {
+                            virtualBalance: totalProceeds,
+                            'portfolio.$.quantity': -parsedQty
+                        }
+                    },
+                    { new: true }
                 );
             }
 
-            // Update balance
-            user.virtualBalance += totalValue;
+            // If null, shares were sold concurrently by another request
+            if (!updatedUser) {
+                return res.status(400).json({ message: 'Insufficient shares to sell. Overselling prevented.' });
+            }
 
-            // Create transaction record
-            const transaction = new Transaction({
-                userId: user._id,
+            // 4. Record transaction log
+            const transaction = await Transaction.create({
+                userId: req.user._id,
                 stockId: stock._id,
                 type: 'sell',
-                quantity: parseInt(quantity),
-                price: stock.currentPrice,
-                total: totalValue
+                quantity: parsedQty,
+                price: executionPrice,
+                total: totalProceeds
             });
 
-            // Save all changes
-            await Promise.all([
-                user.save(),
-                transaction.save()
-            ]);
-
             res.status(200).json({
-                message: 'Stock sold successfully',
+                message: `Successfully sold ${parsedQty} share(s) of ${stock.symbol}`,
                 transaction,
                 user: {
-                    virtualBalance: user.virtualBalance,
-                    portfolio: user.portfolio
+                    virtualBalance: updatedUser.virtualBalance,
+                    portfolio: updatedUser.portfolio
                 }
             });
 
@@ -178,4 +247,4 @@ const tradingController = {
     }
 };
 
-module.exports = tradingController; 
+module.exports = tradingController;

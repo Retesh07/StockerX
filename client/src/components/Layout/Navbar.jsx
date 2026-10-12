@@ -81,8 +81,8 @@ const Navbar = () => {
                         </motion.button>
                     )}
 
-                    {/* Desktop Menu */}
-                    {user && (
+                    {/* Desktop Menu - Authenticated */}
+                    {user ? (
                         <div className="hidden lg:flex flex-1 justify-between items-center">
                             {/* Centered Navigation Links */}
                             <div className="flex-1" /> {/* Left spacer */}
@@ -97,10 +97,10 @@ const Navbar = () => {
                                 <NavLink to="/transactions">Transactions</NavLink>
                                 <NavLink to="/leaderboard">Leaderboard</NavLink>
                                 <motion.span 
-                                    className="text-white px-4 py-2 rounded-lg bg-gray-800/50 backdrop-blur-sm"
+                                    className="text-white px-4 py-2 rounded-lg bg-gray-800/50 backdrop-blur-sm font-mono"
                                     whileHover={{ scale: 1.05 }}
                                 >
-                                    Balance: ${user.virtualBalance.toFixed(2)}
+                                    Balance: ₹{user.virtualBalance.toFixed(2)}
                                 </motion.span>
                             </motion.div>
                             <div className="flex-1 flex justify-end"> {/* Right spacer with logout */}
@@ -113,6 +113,17 @@ const Navbar = () => {
                                     Logout
                                 </motion.button>
                             </div>
+                        </div>
+                    ) : (
+                        /* Desktop Menu - Unauthenticated */
+                        <div className="hidden lg:flex items-center space-x-4">
+                            <NavLink to="/dashboard">Market Overview</NavLink>
+                            <Link to="/login" className="text-gray-300 hover:text-white px-3 py-1.5 rounded-lg text-sm transition-colors">
+                                Sign In
+                            </Link>
+                            <Link to="/register" className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold shadow transition-all hover:scale-105 active:scale-95">
+                                Register
+                            </Link>
                         </div>
                     )}
                 </div>

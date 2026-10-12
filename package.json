@@ -1,0 +1,16 @@
+{
+  "name": "stockerx-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\""
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

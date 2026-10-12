@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import { portfolioService } from '../services/api';
 import React from 'react';
 import { motion } from 'framer-motion';
 
@@ -14,12 +14,7 @@ const Portfolio = ({ setIsCalculatorOpen }) => {
         const fetchPortfolio = async () => {
             try {
                 console.log('Fetching portfolio...');
-                const response = await axios.get('http://localhost:5000/api/portfolio', {
-                    withCredentials: true,
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
+                const response = await portfolioService.getPortfolio();
 
                 // Check the structure of the response
                 console.log('Raw response:', response);
@@ -92,7 +87,7 @@ const Portfolio = ({ setIsCalculatorOpen }) => {
                             <div className="text-center">
                                 <h3 className="text-gray-400">Total Value</h3>
                                 <p className="text-2xl font-bold text-green-500">
-                                    ${user?.virtualBalance?.toFixed(2) || '0.00'}
+                                    ₹{user?.virtualBalance?.toFixed(2) || '0.00'}
                                 </p>
                             </div>
                             <div className="text-center">
@@ -101,7 +96,7 @@ const Portfolio = ({ setIsCalculatorOpen }) => {
                             </div>
                             <div className="text-center">
                                 <h3 className="text-gray-400">Total P/L</h3>
-                                <p className="text-2xl font-bold text-green-500">$0.00</p>
+                                <p className="text-2xl font-bold text-green-500">₹0.00</p>
                             </div>
                         </div>
                     </div>
@@ -128,7 +123,7 @@ const Portfolio = ({ setIsCalculatorOpen }) => {
                                         </div>
                                         <div className="text-right">
                                             <p className="text-xl font-bold text-green-500">
-                                                ${position.stock?.currentPrice?.toFixed(2) || '0.00'}
+                                                ₹{position.stock?.currentPrice?.toFixed(2) || '0.00'}
                                             </p>
                                             <p className="text-gray-400">
                                                 {position.quantity || 0} shares
@@ -140,7 +135,7 @@ const Portfolio = ({ setIsCalculatorOpen }) => {
                                         <span className="text-gray-400">
                                             Total Value:
                                             <span className="text-green-500 ml-2">
-                                                ${((position.quantity || 0) * (position.stock?.currentPrice || 0)).toFixed(2)}
+                                                ₹{((position.quantity || 0) * (position.stock?.currentPrice || 0)).toFixed(2)}
                                             </span>
                                         </span>
                                     </div>

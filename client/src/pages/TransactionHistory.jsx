@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { transactionService } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Transaction SVG Component
@@ -27,9 +27,7 @@ const TransactionHistory = () => {
     useEffect(() => {
         const fetchTransactions = async () => {
             try {
-                const response = await axios.get('http://localhost:5000/api/transactions', {
-                    withCredentials: true
-                });
+                const response = await transactionService.getTransactions();
                 setTransactions(response.data);
                 setLoading(false);
             } catch (err) {
@@ -170,10 +168,10 @@ const TransactionHistory = () => {
                                                 {transaction.quantity}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                                                ${transaction.price.toFixed(2)}
+                                                ₹{transaction.price.toFixed(2)}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                                                ${(transaction.price * transaction.quantity).toFixed(2)}
+                                                ₹{(transaction.price * transaction.quantity).toFixed(2)}
                                             </td>
                                         </motion.tr>
                                     ))}

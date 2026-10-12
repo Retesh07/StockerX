@@ -9,17 +9,45 @@ const app = express();
 // Connect to MongoDB
 connectDB();
 
+// Trust first proxy (Render, Heroku, etc.)
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
 
-// CORS configuration
+// CORS configuration supporting CLIENT_URL and Vercel deployments
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    process.env.CLIENT_URL
+].filter(Boolean);
+
 app.use(cors({
-    origin: 'http://localhost:5173', // Your Vite frontend URL
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (
+            allowedOrigins.includes(origin) ||
+            origin.endsWith('.vercel.app') ||
+            process.env.NODE_ENV !== 'production'
+        ) {
+            return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
+});
 
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
@@ -56,4 +84,4 @@ app.listen(PORT, () => {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
     console.error('Unhandled Promise Rejection:', err);
-}); 
+});

@@ -48,7 +48,7 @@ const authController = {
                 res.cookie('jwt', token, {
                     httpOnly: true,
                     secure: process.env.NODE_ENV === 'production',
-                    sameSite: 'strict',
+                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
                     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
                 });
 
@@ -66,7 +66,7 @@ const authController = {
         } catch (error) {
             console.error('Registration error:', error);
             res.status(500).json({
-                message: 'Registration failed',
+                message: error.message || 'Registration failed',
                 error: error.message
             });
         }
@@ -87,7 +87,7 @@ const authController = {
                 res.cookie('jwt', token, {
                     httpOnly: true,
                     secure: process.env.NODE_ENV === 'production',
-                    sameSite: 'strict',
+                    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
                     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
                 });
 
@@ -109,7 +109,7 @@ const authController = {
         } catch (error) {
             console.error('Login error:', error);
             res.status(500).json({
-                message: 'Login failed',
+                message: error.message || 'Login failed',
                 error: error.message
             });
         }
@@ -119,6 +119,8 @@ const authController = {
         try {
             res.cookie('jwt', '', {
                 httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
                 expires: new Date(0)
             });
             
